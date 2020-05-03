@@ -19,7 +19,7 @@ namespace MatchAuto
         int MEDIUM_VALUE = 2; 
         int LOW_VALUE = 1;
         
-        Dictionary<string, Person> dicMatch = new Dictionary<string, Person>();
+        Dictionary<string, string> dicMatch = new Dictionary<string, string>();
 
         public void Match()
         {
@@ -43,21 +43,19 @@ namespace MatchAuto
             var mentorList = listPerson.Where(t => t.Type == "Mentor")
                 //.OrderByDescending(t => t.Industry.Length)
                 .ToList();
+            bool isSearching = true;
+            int assignedCountTotal = 0;
+            while (isSearching)
+            {
+                FindBestOption(menteeList, mentorList);
+                var assignedCount = menteeList.Where(t => t.OrderNoAssigned != null).Count();
+                if (assignedCount == assignedCountTotal)
+                {
+                    isSearching = false;
+                }
+                assignedCountTotal = assignedCount;
 
-            FindBestOption(menteeList, mentorList);
-            //third loop
-            //foreach (var mentee in menteeList)
-            //{
-            //    foreach (var mentor in mentorList)
-            //    {
-            //        if (mentee.Assigned == null && mentor.Assigned == null)//if the mentee is not assigned
-            //        {
-            //            mentee.Assigned = mentor.FirsName + " " + mentor.LastName;
-            //            mentor.Assigned = mentee.FirsName + " " + mentee.LastName;
-            //            break;
-            //        }
-            //    }
-            //}
+            }
 
             CreateExcel(menteeList, mentorList.OrderBy(t => t.FirsName));
         }
@@ -67,37 +65,49 @@ namespace MatchAuto
             ///first loop criteria (MentorshipBefore = No, IndustryExperience)
             foreach (var mentee in menteeList)
             {
-                int coincidences = 0;
-
-                string mentorOrderNo = null;
-                foreach (var mentor in mentorList)
+                if (!dicMatch.ContainsKey(mentee.OrderNo))
                 {
-                    int coincidencesNew = 0;
-                    coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
-                    coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, MEDIUM_VALUE);
-                    coincidencesNew = coincidencesNew + FindCoincidences(mentee.Industry, mentor.Industry, HIGH_VALUE);
-                    //coincidencesNew = coincidencesNew + FindCoincidences(mentee.AgeGroup, mentor.AgeGroup, LOW_VALUE);
+                    int coincidences = 0;
 
-                    if (coincidencesNew > coincidences) ///choose the best
+                    string mentorOrderNo = null;
+                    foreach (var mentor in mentorList)
                     {
-                        mentorOrderNo = mentor.OrderNo;
-                        coincidences = coincidencesNew;
-                    }
-                }
+                        if (!dicMatch.ContainsValue(mentor.OrderNo))
+                        { 
+                            int coincidencesNew = 0;
+                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
+                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, MEDIUM_VALUE);
+                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Industry, mentor.Industry, HIGH_VALUE);
+                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.AgeGroup, mentor.AgeGroup, LOW_VALUE);
 
-                foreach (var mentor in mentorList)///assing mentor and mentee
-                {
-                    if (mentor.OrderNo == mentorOrderNo)
-                    {
-                        if(UnassignCoincidences(menteeList, mentorOrderNo, coincidences))
-                        {
-                            mentee.Coincidences = coincidences;
-                            mentee.OrderNoAssigned = mentorOrderNo;
-                            break;
+                            if (coincidencesNew > coincidences) ///choose the best
+                            {
+                                mentorOrderNo = mentor.OrderNo;
+                                coincidences = coincidencesNew;
+                            }
                         }
                     }
 
+                    foreach (var mentor in mentorList)///assing mentor and mentee
+                    {
+                        if (mentor.OrderNo == mentorOrderNo)
+                        {
+                            if(UnassignCoincidences(menteeList, mentorOrderNo, coincidences))
+                            {
+                                mentee.Coincidences = coincidences;
+                                mentee.OrderNoAssigned = mentorOrderNo;
+                                break;
+                            }
+                        }
+
+                    }
                 }
+            }      
+
+            foreach (var item in menteeList)
+            {
+                if (item.OrderNoAssigned != null && !dicMatch.ContainsValue(item.OrderNoAssigned))
+                    dicMatch.Add(item.OrderNo, item.OrderNoAssigned);
             }
 
         }
@@ -164,7 +174,8 @@ namespace MatchAuto
                 worksheet.Cells[row, col++].Value = "Coincidences";
                 worksheet.Cells[row, col++].Value = "Function";
                 worksheet.Cells[row, col++].Value = "Subfunction";
-                worksheet.Cells[row, col++].Value = "Industry Experience";
+                worksheet.Cells[row, col++].Value = "Industry";
+                worksheet.Cells[row, col++].Value = "Age Group";
 
                 worksheet.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
                 int cont = 1;
@@ -190,6 +201,7 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.Function;
                     worksheet.Cells[row, col++].Value = item.Subfunction;
                     worksheet.Cells[row, col++].Value = item.Industry;
+                    worksheet.Cells[row, col++].Value = item.AgeGroup;
                 }
 
                 ///////////////////////////////////////////////////////////////////////////
@@ -206,7 +218,8 @@ namespace MatchAuto
                 worksheet.Cells[row, col++].Value = "Coincidences";
                 worksheet.Cells[row, col++].Value = "Function";
                 worksheet.Cells[row, col++].Value = "Subfunction";
-                worksheet.Cells[row, col++].Value = "Industry Experience";
+                worksheet.Cells[row, col++].Value = "Industry";
+                worksheet.Cells[row, col++].Value = "Age Group";
 
                 worksheet.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
                 cont = 1;
@@ -231,6 +244,7 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.Function;
                     worksheet.Cells[row, col++].Value = item.Subfunction;
                     worksheet.Cells[row, col++].Value = item.Industry;
+                    worksheet.Cells[row, col++].Value = item.AgeGroup;
                 }
 
                 worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
