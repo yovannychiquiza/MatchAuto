@@ -15,8 +15,8 @@ namespace MatchAuto
     {
         static string PATH_FROM = "";
         static string PATH_TO = "";
-        int HIGH_VALUE = 3; 
-        int MEDIUM_VALUE = 2; 
+        int HIGH_VALUE = 3;
+        int MEDIUM_VALUE = 2;
         int LOW_VALUE = 1;
         int MAX_VALUE = 13;
         string YES = "Yes";
@@ -29,16 +29,16 @@ namespace MatchAuto
         string Mentee = "Mentee";
         string Mentor = "Mentor";
         string Type = "Type";
-        string YearsExperienceCanada = "YearsExperienceCanada"; 
+        string YearsExperienceCanada = "YearsExperienceCanada";
         string LegallyWorkCanada = "LegallyWorkCanada";
         string AgeGroup = "AgeGroup";
-        string MentorshipBefore = "MentorshipBefore"; 
+        string MentorshipBefore = "MentorshipBefore";
         string JobCurrently = "JobCurrently";
         string Function = "Function";
         string Subfunction = "Subfunction";
         string Industry = "Industry";
         string Experience = "Experience_";
-        
+
 
         int FirstNameCol = 0;
         int LastNameCol = 0;
@@ -68,7 +68,7 @@ namespace MatchAuto
             //var mentorList = matchAutoContext.Person.Where(t => t.Type == "Mentor").OrderByDescending(t => t.IndustryExperience.Length);
             var listPerson = ReadFile();
             var menteeList = listPerson.Where(t => t.Type == GetName(Mentee)
-            && t.LegallyWorkCanada.Contains(YES) ).ToList();
+            && t.LegallyWorkCanada.Contains(YES)).ToList();
 
             var mentorList = listPerson.Where(t => t.Type == GetName(Mentor)).ToList();
             mentorDic = mentorList.ToDictionary(t => t.OrderNo);
@@ -83,7 +83,7 @@ namespace MatchAuto
                 StartMatch(menteeList, mentorList);
             }
 
-            
+
             CreateExcel(menteeList, mentorList.OrderBy(t => t.FirsName));
         }
 
@@ -117,7 +117,7 @@ namespace MatchAuto
                     foreach (var mentor in mentorList)
                     {
                         if (!matchDic.ContainsValue(mentor.OrderNo))
-                        { 
+                        {
                             int coincidencesNew = 0;
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, MEDIUM_VALUE);
@@ -133,12 +133,12 @@ namespace MatchAuto
                                 var mentorOld = mentorDic.GetValueOrDefault(mentorOrderNo);
                                 if (mentorNew.MentorshipBefore == YES && mentorOld.MentorshipBefore == NO)
                                     isChanged = true;
-                                
+
                                 if (mentorNew.MentorshipBefore == YES && mentorOld.MentorshipBefore == YES)///if both have been mentor before
-                                    if(FindExperience(mentorNew.YearsExperienceCanada) > FindExperience(mentorOld.YearsExperienceCanada))
+                                    if (FindExperience(mentorNew.YearsExperienceCanada) > FindExperience(mentorOld.YearsExperienceCanada))
                                         isChanged = true;
                             }
-                            if(isChanged)
+                            if (isChanged)
                             {
                                 mentorOrderNo = mentor.OrderNo;
                                 coincidences = coincidencesNew;
@@ -150,7 +150,7 @@ namespace MatchAuto
                     {
                         if (mentor.OrderNo == mentorOrderNo)
                         {
-                            if(UnassignCoincidences(menteeList, mentorOrderNo, coincidences))
+                            if (UnassignCoincidences(menteeList, mentorOrderNo, coincidences))
                             {
                                 mentee.Coincidences = coincidences;
                                 mentee.OrderNoAssigned = mentorOrderNo;
@@ -159,7 +159,7 @@ namespace MatchAuto
                         }
                     }
                 }
-            }      
+            }
 
             foreach (var item in menteeList)///assing mentor and mentee final
             {
@@ -170,13 +170,14 @@ namespace MatchAuto
         }
 
 
-        public int FindExperience(string experience )
+        public int FindExperience(string experience)
         {
             int experienceMentor = 0;
+            experience = experience.Replace(' ', ' ');
             for (int i = 1; i <= 4; i++)
             {
                 var exp = GetName(Experience + i);
-                if (exp == experience) 
+                if (exp == experience)
                     experienceMentor = i;
             }
             return experienceMentor;
@@ -216,7 +217,7 @@ namespace MatchAuto
         public int FindCoincidences(string menteeList, string mentorList, int increment)
         {
             int coincidences = 0;
-            if(menteeList != null && mentorList != null)
+            if (menteeList != null && mentorList != null)
             {
                 var menteeArray = menteeList.Split('|');
                 var mentorArray = mentorList.Split('|');
@@ -234,7 +235,8 @@ namespace MatchAuto
             return coincidences;
         }
 
-        public void CreateExcel(IEnumerable<Person> menteeList, IEnumerable<Person> mentorList) {
+        public void CreateExcel(IEnumerable<Person> menteeList, IEnumerable<Person> mentorList)
+        {
             using (ExcelPackage excel = new ExcelPackage())
             {
                 excel.Workbook.Worksheets.Add("Worksheet1");
@@ -337,7 +339,7 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.YearsExperienceCanada;
                 }
 
-                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+                //worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
 
                 FileInfo excelFile = new FileInfo(@PATH_TO);
                 excel.SaveAs(excelFile);
@@ -412,9 +414,9 @@ namespace MatchAuto
         }
         public string SubfunctionAdd(string subfunctionSave, string subfunctionNew)
         {
-            if(subfunctionNew != null)
+            if (subfunctionNew != null)
             {
-                if(subfunctionSave == null)
+                if (subfunctionSave == null)
                     subfunctionSave = subfunctionNew;
                 else
                     subfunctionSave = subfunctionSave + "|" + subfunctionNew;
