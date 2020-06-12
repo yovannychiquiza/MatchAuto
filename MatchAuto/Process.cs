@@ -18,14 +18,47 @@ namespace MatchAuto
         int HIGH_VALUE = 3; 
         int MEDIUM_VALUE = 2; 
         int LOW_VALUE = 1;
+        int MAX_VALUE = 13;
+        string YES = "Yes";
+        string NO = "No";
+
+
+        string JobCurrentlyValidate = "JobCurrentlyValidate";
+        string FirstName = "FirstName";
+        string LastName = "LastName";
+        string Mentee = "Mentee";
+        string Mentor = "Mentor";
+        string Type = "Type";
+        string YearsExperienceCanada = "YearsExperienceCanada"; 
+        string LegallyWorkCanada = "LegallyWorkCanada";
+        string AgeGroup = "AgeGroup";
+        string MentorshipBefore = "MentorshipBefore"; 
+        string JobCurrently = "JobCurrently";
+        string Function = "Function";
+        string Subfunction = "Subfunction";
+        string Industry = "Industry";
+        string Experience = "Experience_";
         
-        Dictionary<string, string> dicMatch = new Dictionary<string, string>();
+
+        int FirstNameCol = 0;
+        int LastNameCol = 0;
+        int TypeCol = 0;
+        int YearsExperienceCanadaCol = 0;
+        int LegallyWorkCanadaCol = 0;
+        int AgeGroupCol = 0;
+        int MentorshipBeforeCol = 0;
+        int JobCurrentlyCol = 0;
+        int FunctionCol = 0;
+        int IndustryCol = 0;
+        Dictionary<string, Person> mentorDic = new Dictionary<string, Person>();
+
+        Dictionary<string, string> matchDic = new Dictionary<string, string>();
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+            .Build();
 
         public void Match()
         {
-            IConfiguration configuration = new ConfigurationBuilder()
-            .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-            .Build();
 
             PATH_FROM = configuration.GetValue<string>("MySettings:PathFrom");
             PATH_TO = configuration.GetValue<string>("MySettings:PathTo");
@@ -34,17 +67,32 @@ namespace MatchAuto
             //var menteeList = matchAutoContext.Person.Where(t => t.Type == "Mentee Registration Deposit").OrderByDescending(t => t.IndustryExperience.Length);
             //var mentorList = matchAutoContext.Person.Where(t => t.Type == "Mentor").OrderByDescending(t => t.IndustryExperience.Length);
             var listPerson = ReadFile();
-            var menteeList = listPerson.Where(t => t.Type == "Mentee Registration Deposit")
-                //.OrderByDescending(t => t.LegallyWorkCanada)
-                //.OrderByDescending(t => t.Function.Length)
-                //.OrderByDescending(t => t.Subfunction.Length)
-                //.OrderByDescending(t => t.Industry.Length)
-                .ToList();
-            var mentorList = listPerson.Where(t => t.Type == "Mentor")
-                //.OrderByDescending(t => t.Industry.Length)
-                .ToList();
+            var menteeList = listPerson.Where(t => t.Type == GetName(Mentee)
+            && t.LegallyWorkCanada.Contains(YES) ).ToList();
+
+            var mentorList = listPerson.Where(t => t.Type == GetName(Mentor)).ToList();
+            mentorDic = mentorList.ToDictionary(t => t.OrderNo);
+
+            if (GetName(JobCurrentlyValidate) == "true")
+            {
+                StartMatch(menteeList.Where(t => t.JobCurrently == "No").ToList(), mentorList);
+                StartMatch(menteeList.Where(t => t.JobCurrently == "Yes").ToList(), mentorList);
+            }
+            else
+            {
+                StartMatch(menteeList, mentorList);
+            }
+
+            
+            CreateExcel(menteeList, mentorList.OrderBy(t => t.FirsName));
+        }
+
+
+        public void StartMatch(List<Person> menteeList, List<Person> mentorList)
+        {
             bool isSearching = true;
             int assignedCountTotal = 0;
+
             while (isSearching)
             {
                 FindBestOption(menteeList, mentorList);
@@ -54,33 +102,43 @@ namespace MatchAuto
                     isSearching = false;
                 }
                 assignedCountTotal = assignedCount;
-
             }
-
-            CreateExcel(menteeList, mentorList.OrderBy(t => t.FirsName));
         }
 
         public void FindBestOption(List<Person> menteeList, List<Person> mentorList)
         {
-            ///first loop criteria (MentorshipBefore = No, IndustryExperience)
             foreach (var mentee in menteeList)
             {
-                if (!dicMatch.ContainsKey(mentee.OrderNo))
+                if (!matchDic.ContainsKey(mentee.OrderNo))
                 {
                     int coincidences = 0;
 
                     string mentorOrderNo = null;
                     foreach (var mentor in mentorList)
                     {
-                        if (!dicMatch.ContainsValue(mentor.OrderNo))
+                        if (!matchDic.ContainsValue(mentor.OrderNo))
                         { 
                             int coincidencesNew = 0;
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, MEDIUM_VALUE);
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.Industry, mentor.Industry, HIGH_VALUE);
                             coincidencesNew = coincidencesNew + FindCoincidences(mentee.AgeGroup, mentor.AgeGroup, LOW_VALUE);
+                            bool isChanged = false;
+                            if (coincidencesNew > coincidences) ///choose the best temporal
+                                isChanged = true;
 
-                            if (coincidencesNew > coincidences) ///choose the best
+                            if (coincidencesNew == coincidences && coincidencesNew != 0 && coincidences != 0) //if two mentors has the same coincidences
+                            {
+                                var mentorNew = mentorDic.GetValueOrDefault(mentor.OrderNo);
+                                var mentorOld = mentorDic.GetValueOrDefault(mentorOrderNo);
+                                if (mentorNew.MentorshipBefore == YES && mentorOld.MentorshipBefore == NO)
+                                    isChanged = true;
+                                
+                                if (mentorNew.MentorshipBefore == YES && mentorOld.MentorshipBefore == YES)///if both have been mentor before
+                                    if(FindExperience(mentorNew.YearsExperienceCanada) > FindExperience(mentorOld.YearsExperienceCanada))
+                                        isChanged = true;
+                            }
+                            if(isChanged)
                             {
                                 mentorOrderNo = mentor.OrderNo;
                                 coincidences = coincidencesNew;
@@ -88,7 +146,7 @@ namespace MatchAuto
                         }
                     }
 
-                    foreach (var mentor in mentorList)///assing mentor and mentee
+                    foreach (var mentor in mentorList)///assing mentor and mentee 
                     {
                         if (mentor.OrderNo == mentorOrderNo)
                         {
@@ -99,25 +157,44 @@ namespace MatchAuto
                                 break;
                             }
                         }
-
                     }
                 }
             }      
 
-            foreach (var item in menteeList)
+            foreach (var item in menteeList)///assing mentor and mentee final
             {
-                if (item.OrderNoAssigned != null && !dicMatch.ContainsValue(item.OrderNoAssigned))
-                    dicMatch.Add(item.OrderNo, item.OrderNoAssigned);
+                if (item.OrderNoAssigned != null && !matchDic.ContainsValue(item.OrderNoAssigned))
+                    matchDic.Add(item.OrderNo, item.OrderNoAssigned);
             }
 
         }
 
+
+        public int FindExperience(string experience )
+        {
+            int experienceMentor = 0;
+            for (int i = 1; i <= 4; i++)
+            {
+                var exp = GetName(Experience + i);
+                if (exp == experience) 
+                    experienceMentor = i;
+            }
+            return experienceMentor;
+        }
+
+        /// <summary>
+        /// Compare the previous coincidences saved and Unassign if is necessary
+        /// </summary>
+        /// <param name="menteeList"></param>
+        /// <param name="order"></param>
+        /// <param name="coincidences"></param>
+        /// <returns></returns>
         public bool UnassignCoincidences(List<Person> menteeList, string order, int coincidences)
         {
             bool isReassign = true;
             foreach (var item in menteeList)
             {
-                if (item.OrderNoAssigned == order)
+                if (item.OrderNoAssigned == order) ///if mentor have been assinged before 
                 {
                     if (coincidences > item.Coincidences)
                     {
@@ -138,16 +215,19 @@ namespace MatchAuto
         //find coincidences
         public int FindCoincidences(string menteeList, string mentorList, int increment)
         {
-            var menteeArray = menteeList.Split('|');
-            var mentorArray = mentorList.Split('|');
             int coincidences = 0;
-            foreach (var item1 in menteeArray)
+            if(menteeList != null && mentorList != null)
             {
-                foreach (var item2 in mentorArray)
+                var menteeArray = menteeList.Split('|');
+                var mentorArray = mentorList.Split('|');
+                foreach (var item1 in menteeArray)
                 {
-                    if (item1.Trim() == item2.Trim())
+                    foreach (var item2 in mentorArray)
                     {
-                        coincidences += increment;
+                        if (item1.Trim() == item2.Trim())
+                        {
+                            coincidences += increment;
+                        }
                     }
                 }
             }
@@ -170,12 +250,14 @@ namespace MatchAuto
                 worksheet.Cells[row, col++].Value = "No";
                 worksheet.Cells[row, col++].Value = "Firs Name";
                 worksheet.Cells[row, col++].Value = "Last Name";
-                worksheet.Cells[row, col++].Value = "Assigned";
+                worksheet.Cells[row, col++].Value = "Mentor Assigned";
                 worksheet.Cells[row, col++].Value = "Coincidences";
+                worksheet.Cells[row, col++].Value = "Match %";
                 worksheet.Cells[row, col++].Value = "Function";
                 worksheet.Cells[row, col++].Value = "Subfunction";
                 worksheet.Cells[row, col++].Value = "Industry";
                 worksheet.Cells[row, col++].Value = "Age Group";
+                worksheet.Cells[row, col++].Value = "Job Currently";
 
                 worksheet.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
                 int cont = 1;
@@ -198,10 +280,12 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.LastName;
                     worksheet.Cells[row, col++].Value = assingTo;
                     worksheet.Cells[row, col++].Value = item.Coincidences;
+                    worksheet.Cells[row, col++].Value = (item.Coincidences * 100) / MAX_VALUE;
                     worksheet.Cells[row, col++].Value = item.Function;
                     worksheet.Cells[row, col++].Value = item.Subfunction;
                     worksheet.Cells[row, col++].Value = item.Industry;
                     worksheet.Cells[row, col++].Value = item.AgeGroup;
+                    worksheet.Cells[row, col++].Value = item.JobCurrently;
                 }
 
                 ///////////////////////////////////////////////////////////////////////////
@@ -214,12 +298,15 @@ namespace MatchAuto
                 worksheet.Cells[row, col++].Value = "No";
                 worksheet.Cells[row, col++].Value = "FirsName";
                 worksheet.Cells[row, col++].Value = "LastName";
-                worksheet.Cells[row, col++].Value = "Assigned";
+                worksheet.Cells[row, col++].Value = "Mentee Assigned";
                 worksheet.Cells[row, col++].Value = "Coincidences";
+                worksheet.Cells[row, col++].Value = "Match %";
                 worksheet.Cells[row, col++].Value = "Function";
                 worksheet.Cells[row, col++].Value = "Subfunction";
                 worksheet.Cells[row, col++].Value = "Industry";
                 worksheet.Cells[row, col++].Value = "Age Group";
+                worksheet.Cells[row, col++].Value = "Mentorship Before";
+                worksheet.Cells[row, col++].Value = "Years Experience Canada";
 
                 worksheet.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
                 cont = 1;
@@ -241,10 +328,13 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.LastName;
                     worksheet.Cells[row, col++].Value = assingTo;
                     worksheet.Cells[row, col++].Value = item.Coincidences;
+                    worksheet.Cells[row, col++].Value = (item.Coincidences * 100) / MAX_VALUE;
                     worksheet.Cells[row, col++].Value = item.Function;
                     worksheet.Cells[row, col++].Value = item.Subfunction;
                     worksheet.Cells[row, col++].Value = item.Industry;
                     worksheet.Cells[row, col++].Value = item.AgeGroup;
+                    worksheet.Cells[row, col++].Value = item.MentorshipBefore;
+                    worksheet.Cells[row, col++].Value = item.YearsExperienceCanada;
                 }
 
                 worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
@@ -261,6 +351,7 @@ namespace MatchAuto
         {
 
             List<Person> personList = new List<Person>();
+            Dictionary<int, int> subfunctionDic = new Dictionary<int, int>();
 
             int row = 0;
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
@@ -270,28 +361,44 @@ namespace MatchAuto
                 {
                     while (reader.Read()) //Each ROW
                     {
-                        if (row > 0)
+                        if (row == 0)//read column names
                         {
+                            for (int column = 0; column < reader.FieldCount; column++)
+                            {
+                                if (getValue(reader, column) == GetName(FirstName)) FirstNameCol = column;
+                                if (getValue(reader, column) == GetName(LastName)) LastNameCol = column;
+                                if (getValue(reader, column) == GetName(Type)) TypeCol = column;
+                                if (getValue(reader, column) == GetName(YearsExperienceCanada)) YearsExperienceCanadaCol = column;
+                                if (getValue(reader, column) == GetName(LegallyWorkCanada)) LegallyWorkCanadaCol = column;
+                                if (getValue(reader, column) == GetName(AgeGroup)) AgeGroupCol = column;
+                                if (getValue(reader, column) == GetName(MentorshipBefore)) MentorshipBeforeCol = column;
+                                if (getValue(reader, column) == GetName(JobCurrently)) JobCurrentlyCol = column;
+                                if (getValue(reader, column) == GetName(Function)) FunctionCol = column;
+                                if (getValue(reader, column).Contains(GetName(Subfunction))) subfunctionDic.Add(column, column);
+                                if (getValue(reader, column) == GetName(Industry)) IndustryCol = column;
+
+                            }
+                        }
+                        else
+                        {
+
+
                             Person person = new Person();
                             for (int column = 0; column < reader.FieldCount; column++)
                             {
-                                 
                                 //CreateLog(column + "-"+ getValue(reader, column));
                                 if (column == 0) person.OrderNo = row.ToString();
-                                if (column == 2) person.FirsName = getValue(reader, column);
-                                if (column == 3) person.LastName = getValue(reader, column);
-                                if (column == 7) person.Type = getValue(reader, column);
-                                //if (column == 11) person.AttendeeStatus = getValue(reader, column);
-                                if (column == 26) person.YearsExperienceCanada = getValue(reader, column);
-                                //if (column == 16) person.ApplyingTo = getValue(reader, column);
-                                if (column == 27) person.OrganizationMember = getValue(reader, column);
-                                if (column == 30) person.LegallyWorkCanada = getValue(reader, column);
-                                if (column == 33) person.AgeGroup = getValue(reader, column);
-                                if (column == 39) person.MentorshipBefore = getValue(reader, column);
-                                if (column == 49) person.JobCurrently = getValue(reader, column);
-                                if (column == 50) person.Function = getValue(reader, column);
-                                if (column >=51 && column <= 68 ) person.Subfunction = Subfunction(person.Subfunction, getValue(reader, column));
-                                if (column == 69) person.Industry = getValue(reader, column);
+                                if (column == FirstNameCol) person.FirsName = getValue(reader, column);
+                                if (column == LastNameCol) person.LastName = getValue(reader, column);
+                                if (column == TypeCol) person.Type = getValue(reader, column);
+                                if (column == YearsExperienceCanadaCol) person.YearsExperienceCanada = getValue(reader, column);
+                                if (column == LegallyWorkCanadaCol) person.LegallyWorkCanada = getValue(reader, column);
+                                if (column == AgeGroupCol) person.AgeGroup = getValue(reader, column);
+                                if (column == MentorshipBeforeCol) person.MentorshipBefore = getValue(reader, column);
+                                if (column == JobCurrentlyCol) person.JobCurrently = getValue(reader, column);
+                                if (column == FunctionCol) person.Function = getValue(reader, column);
+                                if (subfunctionDic.ContainsKey(column)) person.Subfunction = SubfunctionAdd(person.Subfunction, getValue(reader, column));
+                                if (column == IndustryCol) person.Industry = getValue(reader, column);
                             }
                             personList.Add(person);
 
@@ -303,7 +410,7 @@ namespace MatchAuto
             }
             return personList;
         }
-        public string Subfunction(string subfunctionSave, string subfunctionNew)
+        public string SubfunctionAdd(string subfunctionSave, string subfunctionNew)
         {
             if(subfunctionNew != null)
             {
@@ -341,6 +448,10 @@ namespace MatchAuto
             }
         }
 
+        public string GetName(string value)
+        {
+            return configuration.GetValue<string>("MySettings:" + value);
+        }
 
 
         //public void ReadFileSave()

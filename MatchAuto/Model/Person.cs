@@ -15,7 +15,7 @@ namespace MatchAuto.Model
 		public string AttendeeStatus { get; set; }
 		public string YearsExperienceCanada { get; set; }
 		public string ApplyingTo { get; set; }
-		public string OrganizationMember { get; set; }
+		//public string OrganizationMember { get; set; }
 		public string LegallyWorkCanada { get; set; }
 		public string AgeGroup { get; set; }
 		public string MentorshipBefore { get; set; }
