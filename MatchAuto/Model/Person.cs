@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
+﻿
 namespace MatchAuto.Model
 {
     public class Person
@@ -11,11 +8,11 @@ namespace MatchAuto.Model
 		public string OrderNo { get; set; }
 		public string FirsName { get; set; }
 		public string LastName { get; set; }
+		public string Email { get; set; }
 		public string Type { get; set; }
 		public string AttendeeStatus { get; set; }
 		public string YearsExperienceCanada { get; set; }
 		public string ApplyingTo { get; set; }
-		//public string OrganizationMember { get; set; }
 		public string LegallyWorkCanada { get; set; }
 		public string AgeGroup { get; set; }
 		public string MentorshipBefore { get; set; }
@@ -26,6 +23,7 @@ namespace MatchAuto.Model
 		public string Assigned { get; set; }
 		public int Coincidences { get; set; }
 		public string OrderNoAssigned { get; set; }
+		public string MemberType { get; set; }
 
 
 	}
