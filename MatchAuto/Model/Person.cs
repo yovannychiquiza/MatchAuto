@@ -24,7 +24,6 @@ namespace MatchAuto.Model
 		public int Coincidences { get; set; }
 		public string OrderNoAssigned { get; set; }
 		public string MemberType { get; set; }
-
-
+		public string LinkedIn { get; set; }
 	}
 }

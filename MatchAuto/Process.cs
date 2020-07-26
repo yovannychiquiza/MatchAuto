@@ -21,7 +21,7 @@ namespace MatchAuto
         int HIGH_VALUE = 3;
         int MEDIUM_VALUE = 2;
         int LOW_VALUE = 1;
-        int MAX_VALUE = 16;
+        int MAX_VALUE = 13;
         string YES = "Yes";
         string NO = "No";
 
@@ -40,7 +40,10 @@ namespace MatchAuto
         string Function = "Function";
         string Subfunction = "Subfunction";
         string Industry = "Industry";
+        string IndustryExperience = "IndustryExperience";
         string Experience = "Experience_";
+        string AgeGroup_ = "AgeGroup_";
+        string LinkedIn = "LinkedIn";
 
 
         int FirstNameCol = 0;
@@ -55,6 +58,8 @@ namespace MatchAuto
         int JobCurrentlyCol = 0;
         int FunctionCol = 0;
         int IndustryCol = 0;
+        int IndustryExperienceCol = 0;
+        int LinkedInCol = 0;
 
         Dictionary<string, Person> mentorDic = new Dictionary<string, Person>();
 
@@ -81,7 +86,7 @@ namespace MatchAuto
             StartMatch(menteeList.Where(t => t.JobCurrently == "No").ToList(), mentorList);
             StartMatch(menteeList.Where(t => t.JobCurrently == "Yes").ToList(), mentorList);
          
-            CreateExcel(menteeList.OrderByDescending(t => t.Coincidences), mentorList.OrderBy(t => t.FirsName));
+            CreateExcel(menteeList.OrderByDescending(t => t.Coincidences), mentorList.OrderBy(t => t.FirsName), listPerson);
         }
 
         /// <summary>
@@ -125,11 +130,14 @@ namespace MatchAuto
                         if (!matchDic.ContainsValue(mentor.OrderNo))
                         {
                             int coincidencesNew = 0;
-                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
-                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, MEDIUM_VALUE);
-                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.Industry, mentor.Industry, HIGH_VALUE);
-                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.AgeGroup, mentor.AgeGroup, LOW_VALUE);
-                            coincidencesNew = coincidencesNew + FindCoincidences(mentee.MemberType, mentor.MemberType, HIGH_VALUE);
+                            if (FindAgeGroup(mentor.AgeGroup) >= FindAgeGroup(mentee.AgeGroup)) //Compare if mentor age group is greater or equal than mentee age group
+                            { 
+                                coincidencesNew = coincidencesNew + FindCoincidences(mentee.Function, mentor.Function, HIGH_VALUE);
+                                coincidencesNew = coincidencesNew + FindCoincidences(mentee.Subfunction, mentor.Subfunction, LOW_VALUE);
+                                coincidencesNew = coincidencesNew + FindCoincidences(mentee.Industry, mentor.Industry, HIGH_VALUE);
+                                coincidencesNew = coincidencesNew + FindCoincidences(mentee.MemberType, mentor.MemberType, HIGH_VALUE);
+                                coincidencesNew = coincidencesNew + LOW_VALUE;
+                            }
                             bool isChanged = false;
                             if (coincidencesNew > coincidences) ///choose the best temporal
                                 isChanged = true;
@@ -176,6 +184,19 @@ namespace MatchAuto
 
         }
 
+
+        public int FindAgeGroup(string age)
+        {
+            int value = 0, i = 1;
+            while (GetName(AgeGroup_ + i) != null)
+            {
+                if (GetName(AgeGroup_ + i) == age)
+                    value = i;
+                i++;
+            }
+            return value;
+        }
+
         /// <summary>
         /// Return the number for mentor experience 
         /// </summary>
@@ -183,13 +204,13 @@ namespace MatchAuto
         /// <returns></returns>
         public int FindExperience(string experience)
         {
-            int experienceMentor = 0;
+            int experienceMentor = 0, i = 1;
             experience = experience.Replace(' ', ' ');//it is required if contains special character 
-            for (int i = 1; i <= 4; i++)
+            while (GetName(Experience + i) != null)
             {
-                var exp = GetName(Experience + i);
-                if (exp == experience)
+                if (GetName(Experience + i) == experience)
                     experienceMentor = i;
+                i++;
             }
             return experienceMentor;
         }
@@ -257,14 +278,14 @@ namespace MatchAuto
         /// </summary>
         /// <param name="menteeList"></param>
         /// <param name="mentorList"></param>
-        public void CreateExcel(IEnumerable<Person> menteeList, IEnumerable<Person> mentorList)
+        public void CreateExcel(IEnumerable<Person> menteeList, IEnumerable<Person> mentorList, IEnumerable<Person> listPerson)
         {
             using (ExcelPackage excel = new ExcelPackage())
             {
-                excel.Workbook.Worksheets.Add("Worksheet1");
+                excel.Workbook.Worksheets.Add("Match");
 
                 // Target a worksheet
-                var worksheet = excel.Workbook.Worksheets["Worksheet1"];
+                var worksheet = excel.Workbook.Worksheets["Match"];
 
                 int row = 1;
                 int col = 1;
@@ -284,11 +305,13 @@ namespace MatchAuto
                 worksheet.Cells[row, col++].Value = "Member Type";
                 worksheet.Cells[row, col++].Value = "Mentorship Before";
                 worksheet.Cells[row, col++].Value = "Years Experience Canada";
+                worksheet.Cells[row, col++].Value = "LinkedIn";
                 worksheet.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
                 
                 var dicMentorList = mentorList.ToDictionary(t => t.OrderNo);
                 int cod = 1;
-                foreach (var item in menteeList)
+                bool colorChange = false;
+                foreach (var item in menteeList.Where(t => t.OrderNoAssigned != null))
                 {
                     row++;
                     col = 1;
@@ -312,9 +335,19 @@ namespace MatchAuto
                     worksheet.Cells[row, col++].Value = item.AgeGroup;
                     worksheet.Cells[row, col++].Value = item.JobCurrently;
                     worksheet.Cells[row, col++].Value = item.MemberType;
+                    col += 2;
+                    worksheet.Cells[row, col++].Value = item.LinkedIn;
 
-                    worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 15)].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                    worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 15)].Style.Fill.BackgroundColor.SetColor(Color.LightSkyBlue);
+                    if (colorChange)
+                    {
+                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.BackgroundColor.SetColor(Color.LightSkyBlue);
+                    }
+                    else
+                    {
+                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
+                    }
 
                     if (person != null)
                     {
@@ -332,16 +365,139 @@ namespace MatchAuto
                         worksheet.Cells[row, col++].Value = person.Industry;
                         worksheet.Cells[row, col++].Value = person.AgeGroup;
                         col++;
-                        worksheet.Cells[row, col++].Value = item.MemberType;
+                        worksheet.Cells[row, col++].Value = person.MemberType;
                         worksheet.Cells[row, col++].Value = person.MentorshipBefore;
                         worksheet.Cells[row, col++].Value = person.YearsExperienceCanada;
+                        worksheet.Cells[row, col++].Value = person.LinkedIn;
                         cod++;
-                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 15)].Style.Fill.PatternType = ExcelFillStyle.Solid;
-                        worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 15)].Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
+                        if (colorChange)
+                        {
+                            worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.BackgroundColor.SetColor(Color.LightSkyBlue);
+                        }
+                        else
+                        {
+                            worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.PatternType = ExcelFillStyle.Solid;
+                            worksheet.Cells[ExcelRange.GetAddress(row, 1, row, 16)].Style.Fill.BackgroundColor.SetColor(Color.LightYellow);
+                        }
 
                     }
+                    colorChange = colorChange ? false : true;
+                }
+                ////////////////////////////////////////////////////////////////////////////
+
+
+                excel.Workbook.Worksheets.Add("Unmatch");
+
+                // Target a worksheet
+                var unmatch = excel.Workbook.Worksheets["Unmatch"];
+
+                row = 1;
+                col = 1;
+
+                unmatch.Cells[row, col++].Value = "Code";
+                unmatch.Cells[row, col++].Value = "Type";
+                unmatch.Cells[row, col++].Value = "Firs Name";
+                unmatch.Cells[row, col++].Value = "Last Name";
+                unmatch.Cells[row, col++].Value = "Email";
+                unmatch.Cells[row, col++].Value = "Function";
+                unmatch.Cells[row, col++].Value = "Subfunction";
+                unmatch.Cells[row, col++].Value = "Industry";
+                unmatch.Cells[row, col++].Value = "Age Group";
+                unmatch.Cells[row, col++].Value = "Member Type";
+                unmatch.Cells[row, col++].Value = "LinkedIn";
+
+                unmatch.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
+
+                foreach (var item in menteeList.Where(t => t.OrderNoAssigned == null).OrderBy(t => t.Function))
+                {
+
+                    col = 1;
+                    row++;
+                    unmatch.Cells[row, col++].Value = row - 1;
+                    unmatch.Cells[row, col++].Value = "Mentee";
+                    unmatch.Cells[row, col++].Value = item.FirsName;
+                    unmatch.Cells[row, col++].Value = item.LastName;
+                    unmatch.Cells[row, col++].Value = item.Email;
+                    unmatch.Cells[row, col++].Value = item.Function;
+                    unmatch.Cells[row, col++].Value = item.Subfunction;
+                    unmatch.Cells[row, col++].Value = item.Industry;
+                    unmatch.Cells[row, col++].Value = item.AgeGroup;
+                    unmatch.Cells[row, col++].Value = item.MemberType;
+                    unmatch.Cells[row, col++].Value = item.LinkedIn;
 
                 }
+
+
+                var dicMenteeList = menteeList.Where(t => t.OrderNoAssigned != null).ToDictionary(t => t.OrderNoAssigned);
+
+                foreach (var item in mentorList)
+                {
+                    if (!dicMenteeList.ContainsKey(item.OrderNo))
+                    {
+                        col = 1;
+                        row++;
+                        unmatch.Cells[row, col++].Value = row - 1;
+                        unmatch.Cells[row, col++].Value = item.Type;
+                        unmatch.Cells[row, col++].Value = item.FirsName;
+                        unmatch.Cells[row, col++].Value = item.LastName;
+                        unmatch.Cells[row, col++].Value = item.Email;
+                        unmatch.Cells[row, col++].Value = item.Function;
+                        unmatch.Cells[row, col++].Value = item.Subfunction;
+                        unmatch.Cells[row, col++].Value = item.Industry;
+                        unmatch.Cells[row, col++].Value = item.AgeGroup;
+                        unmatch.Cells[row, col++].Value = item.MemberType;
+                        unmatch.Cells[row, col++].Value = item.LinkedIn;
+                    }
+                   
+                }
+
+                ////////////////////////////////////////////////////////////////////////////
+
+                excel.Workbook.Worksheets.Add("Excluded");
+
+                // Target a worksheet
+                var excluded = excel.Workbook.Worksheets["Excluded"];
+
+                row = 1;
+                col = 1;
+
+                excluded.Cells[row, col++].Value = "Code";
+                excluded.Cells[row, col++].Value = "Type";
+                excluded.Cells[row, col++].Value = "Firs Name";
+                excluded.Cells[row, col++].Value = "Last Name";
+                excluded.Cells[row, col++].Value = "Email";
+                excluded.Cells[row, col++].Value = "Function";
+                excluded.Cells[row, col++].Value = "Subfunction";
+                excluded.Cells[row, col++].Value = "Industry";
+                excluded.Cells[row, col++].Value = "Age Group";
+                excluded.Cells[row, col++].Value = "Work permit";
+
+                excluded.Cells[ExcelRange.GetAddress(row, 1, row, col)].Style.Font.Bold = true;
+
+                foreach (var item in listPerson.Where(t => t.Type.Equals("Super Mentor") ||
+                                                           t.Type.Equals("Volunteer") 
+                                                           || (t.LegallyWorkCanada != null && t.LegallyWorkCanada.Equals("No"))
+                                                           ).OrderBy(t => t.Type))
+                                                           
+                {
+                    
+                    col = 1;
+                    row++;
+                    excluded.Cells[row, col++].Value = row - 1;
+                    excluded.Cells[row, col++].Value = item.Type;
+                    excluded.Cells[row, col++].Value = item.FirsName;
+                    excluded.Cells[row, col++].Value = item.LastName;
+                    excluded.Cells[row, col++].Value = item.Email;
+                    excluded.Cells[row, col++].Value = item.Function;
+                    excluded.Cells[row, col++].Value = item.Subfunction;
+                    excluded.Cells[row, col++].Value = item.Industry;
+                    excluded.Cells[row, col++].Value = item.AgeGroup;
+                    excluded.Cells[row, col++].Value = item.LegallyWorkCanada;
+
+                }
+                
+                ////////////////////////////////////////////////////////////////////////////
 
                 //worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
 
@@ -386,6 +542,8 @@ namespace MatchAuto
                                 if (getValue(reader, column) == GetName(Function)) FunctionCol = column;
                                 if (getValue(reader, column).Contains(GetName(Subfunction))) subfunctionDic.Add(column, column);
                                 if (getValue(reader, column) == GetName(Industry)) IndustryCol = column;
+                                if (getValue(reader, column) == GetName(IndustryExperience)) IndustryExperienceCol = column;
+                                if (getValue(reader, column) == GetName(LinkedIn)) LinkedInCol = column;
 
                             }
                         }
@@ -408,7 +566,9 @@ namespace MatchAuto
                                 if (column == JobCurrentlyCol) person.JobCurrently = getValue(reader, column);
                                 if (column == FunctionCol) person.Function = getValue(reader, column);
                                 if (subfunctionDic.ContainsKey(column)) person.Subfunction = SubfunctionAdd(person.Subfunction, getValue(reader, column));
-                                if (column == IndustryCol) person.Industry = getValue(reader, column);
+                                if (column == IndustryCol) person.Industry = getValue(reader, column) != null ? getValue(reader, column) : person.Industry;
+                                if (column == IndustryExperienceCol) person.Industry = getValue(reader, column) != null ? getValue(reader, column): person.Industry;
+                                if (column == LinkedInCol) person.LinkedIn = getValue(reader, column);
                             }
                             personList.Add(person);
 
@@ -543,12 +703,25 @@ namespace MatchAuto
         /// <returns></returns>
         public string SubfunctionAdd(string subfunctionSave, string subfunctionNew)
         {
+            string SEPARATOR = "|";
             if (subfunctionNew != null)
             {
                 if (subfunctionSave == null)
                     subfunctionSave = subfunctionNew;
                 else
-                    subfunctionSave = subfunctionSave + "|" + subfunctionNew;
+                    subfunctionSave = subfunctionSave + SEPARATOR + subfunctionNew;
+           
+                string tmp = null;
+                //order by name
+                var subfunctionList = subfunctionSave.Split(SEPARATOR).ToList().OrderBy(t => t.ToString());
+                foreach (var item in subfunctionList)
+                {
+                    if (tmp == null)
+                        tmp = item;
+                    else
+                        tmp = tmp + SEPARATOR + item;
+                }
+                subfunctionSave = tmp;
             }
 
             return subfunctionSave;
